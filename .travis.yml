@@ -54,8 +54,8 @@ script:
 
 after_script:
   - PX4_S3_CFG="Tools/s3/.s3cfg"
+  - sed -i "s|SECRET_KEY|$PX4_AWS_SECRET|" $PX4_S3_CFG
   - sed -i "s/ACCESS_KEY/$PX4_AWS_KEY/" $PX4_S3_CFG
-  - sed -i "s/SECRET_KEY/$PX4_AWS_SECRET/" $PX4_S3_CFG
   - s3cmd --config $PX4_S3_CFG --acl-public put Images/px4*.px4 s3://$PX4_AWS_BUCKET/$TRAVIS_BRANCH/
   - s3cmd --config $PX4_S3_CFG --acl-public put Images/px4*.px4 s3://$PX4_AWS_BUCKET/$TRAVIS_BRANCH/archives/`date "+%Y-%m-%d"`-$TRAVIS_BUILD_ID/
   - s3cmd --config $PX4_S3_CFG --acl-public put Tools/s3/index.html s3://$PX4_AWS_BUCKET/index.html
