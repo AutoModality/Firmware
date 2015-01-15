@@ -65,8 +65,8 @@ after_script:
 # upload top level index.html
   - s3cmd --config $PX4_S3_CFG --acl-public put Tools/s3/index.html s3://$PX4_AWS_BUCKET/index.html
 # add timestamp to index.html
-  - bash Tools/s3/mktimestamp.sh
-  - s3cmd --config $PX4_S3_CFG --acl-public put Timestamp.html s3://$PX4_AWS_BUCKET/timestamp.html
+  - ./Tools/s3/mktimestamp.sh
+  - s3cmd --config $PX4_S3_CFG --acl-public put timestamp.html s3://$PX4_AWS_BUCKET/timestamp.html
 
 # We use an encrypted env variable to ensure this only executes when artifacts are uploaded.
 #after_script:
