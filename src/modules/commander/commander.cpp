@@ -42,9 +42,12 @@
  * @author Anton Babushkin <anton.babushkin@me.com>
  */
 
-#include <nuttx/config.h>
+#include <px4_config.h>
+#include <px4_posix.h>
+#include <px4_time.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -53,8 +56,10 @@
 #include <errno.h>
 #include <systemlib/err.h>
 #include <systemlib/circuit_breaker.h>
-#include <debug.h>
+//#include <debug.h>
+#ifndef __PX4_QURT
 #include <sys/prctl.h>
+#endif
 #include <sys/stat.h>
 #include <string.h>
 #include <math.h>
@@ -124,6 +129,8 @@
 static const int ERROR = -1;
 
 extern struct system_load_s system_load;
+
+static constexpr uint8_t COMMANDER_MAX_GPS_NOISE = 60;		/**< Maximum percentage signal to noise ratio allowed for GPS reception */
 
 /* Decouple update interval and hysteris counters, all depends on intervals */
 #define COMMANDER_MONITORING_INTERVAL 50000
@@ -255,6 +262,7 @@ int commander_main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		usage("missing command");
+		return 1;
 	}
 
 	if (!strcmp(argv[1], "start")) {
@@ -262,11 +270,11 @@ int commander_main(int argc, char *argv[])
 		if (thread_running) {
 			warnx("commander already running");
 			/* this is not an error */
-			exit(0);
+			return 0;
 		}
 
 		thread_should_exit = false;
-		daemon_task = task_spawn_cmd("commander",
+		daemon_task = px4_task_spawn_cmd("commander",
 					     SCHED_DEFAULT,
 					     SCHED_PRIORITY_MAX - 40,
 					     3400,
@@ -277,13 +285,14 @@ int commander_main(int argc, char *argv[])
 			usleep(200);
 		}
 
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "stop")) {
 
 		if (!thread_running) {
-			errx(0, "commander already stopped");
+			warnx("commander already stopped");
+			return 0;
 		}
 
 		thread_should_exit = true;
@@ -295,18 +304,18 @@ int commander_main(int argc, char *argv[])
 
 		warnx("terminated.");
 
-		exit(0);
+		return 0;
 	}
 
 	/* commands needing the app to run below */
 	if (!thread_running) {
 		warnx("\tcommander not started");
-		exit(1);
+		return 1;
 	}
 
 	if (!strcmp(argv[1], "status")) {
 		print_status();
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "calibrate")) {
@@ -318,14 +327,17 @@ int commander_main(int argc, char *argv[])
 				calib_ret = do_accel_calibration(mavlink_fd);
 			} else if (!strcmp(argv[2], "gyro")) {
 				calib_ret = do_gyro_calibration(mavlink_fd);
+			} else if (!strcmp(argv[2], "level")) {
+				calib_ret = do_level_calibration(mavlink_fd);
 			} else {
 				warnx("argument %s unsupported.", argv[2]);
 			}
 
 			if (calib_ret) {
-				errx(1, "calibration failed, exiting.");
+				warnx("calibration failed, exiting.");
+				return 0;
 			} else {
-				exit(0);
+				return 0;
 			}
 		} else {
 			warnx("missing argument");
@@ -337,25 +349,25 @@ int commander_main(int argc, char *argv[])
 		int checkres = prearm_check(&status, mavlink_fd_local);
 		close(mavlink_fd_local);
 		warnx("FINAL RESULT: %s", (checkres == 0) ? "OK" : "FAILED");
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "arm")) {
 		int mavlink_fd_local = open(MAVLINK_LOG_DEVICE, 0);
 		arm_disarm(true, mavlink_fd_local, "command line");
 		close(mavlink_fd_local);
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "disarm")) {
 		int mavlink_fd_local = open(MAVLINK_LOG_DEVICE, 0);
 		arm_disarm(false, mavlink_fd_local, "command line");
 		close(mavlink_fd_local);
-		exit(0);
+                return 0;
 	}
 
 	usage("unrecognized command");
-	exit(1);
+	return 1;
 }
 
 void usage(const char *reason)
@@ -365,7 +377,6 @@ void usage(const char *reason)
 	}
 
 	fprintf(stderr, "usage: commander {start|stop|status|calibrate|check|arm|disarm}\n\n");
-	exit(1);
 }
 
 void print_status()
@@ -548,7 +559,7 @@ bool handle_command(struct vehicle_status_s *status_local, const struct safety_s
 				else {
 
 					// Refuse to arm if preflight checks have failed
-					if (!status.hil_state != vehicle_status_s::HIL_STATE_ON && !status.condition_system_sensors_initialized) {
+					if ((!status.hil_state) != vehicle_status_s::HIL_STATE_ON && !status.condition_system_sensors_initialized) {
 						mavlink_log_critical(mavlink_fd, "Arming DENIED. Preflight checks have failed.");
 						cmd_result = VEHICLE_CMD_RESULT_DENIED;			
 						break;
@@ -923,6 +934,7 @@ int commander_thread_main(int argc, char *argv[])
 	status.circuit_breaker_engaged_airspd_check = false;
 	status.circuit_breaker_engaged_enginefailure_check = false;
 	status.circuit_breaker_engaged_gpsfailure_check = false;
+	get_circuit_breaker_params();
 
 	/* publish initial state */
 	status_pub = orb_advertise(ORB_ID(vehicle_status), &status);
@@ -930,7 +942,7 @@ int commander_thread_main(int argc, char *argv[])
 	if (status_pub < 0) {
 		warnx("ERROR: orb_advertise for topic vehicle_status failed (uorb app running?).\n");
 		warnx("exiting.");
-		exit(ERROR);
+		px4_task_exit(ERROR);
 	}
 
 	/* armed topic */
@@ -1124,8 +1136,6 @@ int commander_thread_main(int argc, char *argv[])
 	param_get(_param_sys_type, &(status.system_type)); // get system type
 	status.is_rotary_wing = is_rotary_wing(&status) || is_vtol(&status);
 
-	get_circuit_breaker_params();
-
 	bool checkAirspeed = false;
 	/* Perform airspeed check only if circuit breaker is not
 	 * engaged and it's not a rotary wing */
@@ -1134,7 +1144,7 @@ int commander_thread_main(int argc, char *argv[])
 	}
 
 	// Run preflight check
-	status.condition_system_sensors_initialized = Commander::preflightCheck(mavlink_fd, true, true, true, true, checkAirspeed, true);
+	status.condition_system_sensors_initialized = Commander::preflightCheck(mavlink_fd, true, true, true, true, checkAirspeed, true, !status.circuit_breaker_engaged_gpsfailure_check);
 	if (!status.condition_system_sensors_initialized) {
 		set_tune_override(TONE_GPS_WARNING_TUNE); //sensor fail tune
 	}
@@ -1307,7 +1317,7 @@ int commander_thread_main(int argc, char *argv[])
 					}
 
 					/* provide RC and sensor status feedback to the user */
-					(void)Commander::preflightCheck(mavlink_fd, true, true, true, true, chAirspeed, true);
+					(void)Commander::preflightCheck(mavlink_fd, true, true, true, true, chAirspeed, true, !status.circuit_breaker_engaged_gpsfailure_check);
 				}
 
 				telemetry_last_heartbeat[i] = telemetry.heartbeat_time;
@@ -1644,19 +1654,31 @@ int commander_thread_main(int argc, char *argv[])
 						  (float)gps_position.alt * 1.0e-3f, hrt_absolute_time());
 		}
 
-		/* check if GPS fix is ok */
-		if (status.circuit_breaker_engaged_gpsfailure_check ||
-		    (gps_position.fix_type >= 3 &&
-		     hrt_elapsed_time(&gps_position.timestamp_position) < FAILSAFE_DEFAULT_TIMEOUT)) {
-			/* handle the case where gps was regained */
-			if (status.gps_failure) {
-				status.gps_failure = false;
-				status_changed = true;
-				mavlink_log_critical(mavlink_fd, "gps regained");
+		/* check if GPS is ok */
+		if (!status.circuit_breaker_engaged_gpsfailure_check) {
+			bool gpsIsNoisy = gps_position.noise_per_ms > 0 && gps_position.noise_per_ms < COMMANDER_MAX_GPS_NOISE;
+
+			//Check if GPS receiver is too noisy while we are disarmed
+			if (!armed.armed && gpsIsNoisy) {
+				if (!status.gps_failure) {
+					mavlink_log_critical(mavlink_fd, "GPS signal noisy");
+					set_tune_override(TONE_GPS_WARNING_TUNE);
+
+					//GPS suffers from signal jamming or excessive noise, disable GPS-aided flight
+					status.gps_failure = true;
+					status_changed = true;
+				}
 			}
 
-		} else {
-			if (!status.gps_failure) {
+			if (gps_position.fix_type >= 3 && hrt_elapsed_time(&gps_position.timestamp_position) < FAILSAFE_DEFAULT_TIMEOUT) {
+				/* handle the case where gps was regained */
+				if (status.gps_failure && !gpsIsNoisy) {
+					status.gps_failure = false;
+					status_changed = true;
+					mavlink_log_critical(mavlink_fd, "gps regained");
+				}
+
+			} else if (!status.gps_failure) {
 				status.gps_failure = true;
 				status_changed = true;
 				mavlink_log_critical(mavlink_fd, "gps fix lost");
@@ -2595,8 +2617,10 @@ void answer_command(struct vehicle_command_s &cmd, enum VEHICLE_CMD_RESULT resul
 
 void *commander_low_prio_loop(void *arg)
 {
+#ifndef __PX4_QURT
 	/* Set thread name */
 	prctl(PR_SET_NAME, "commander_low_prio", getpid());
+#endif
 
 	/* Subscribe to command topic */
 	int cmd_sub = orb_subscribe(ORB_ID(vehicle_command));
@@ -2607,7 +2631,7 @@ void *commander_low_prio_loop(void *arg)
 	hrt_abstime need_param_autosave_timeout = 0;
 
 	/* wakeup source(s) */
-	struct pollfd fds[1];
+	px4_pollfd_struct_t fds[1];
 
 	/* use the gyro to pace output - XXX BROKEN if we are using the L3GD20 */
 	fds[0].fd = cmd_sub;
@@ -2615,7 +2639,7 @@ void *commander_low_prio_loop(void *arg)
 
 	while (!thread_should_exit) {
 		/* wait for up to 1000ms for data */
-		int pret = poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 1000);
+		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 1000);
 
 		/* timed out - periodic check for thread_should_exit, etc. */
 		if (pret == 0) {
@@ -2664,13 +2688,13 @@ void *commander_low_prio_loop(void *arg)
 						answer_command(cmd, VEHICLE_CMD_RESULT_ACCEPTED);
 						usleep(100000);
 						/* reboot */
-						systemreset(false);
+						px4_systemreset(false);
 
 					} else if (((int)(cmd.param1)) == 3) {
 						answer_command(cmd, VEHICLE_CMD_RESULT_ACCEPTED);
 						usleep(100000);
 						/* reboot to bootloader */
-						systemreset(true);
+						px4_systemreset(true);
 
 					} else {
 						answer_command(cmd, VEHICLE_CMD_RESULT_DENIED);
@@ -2724,7 +2748,10 @@ void *commander_low_prio_loop(void *arg)
 						/* accelerometer calibration */
 						answer_command(cmd, VEHICLE_CMD_RESULT_ACCEPTED);
 						calib_ret = do_accel_calibration(mavlink_fd);
-
+					} else if ((int)(cmd.param5) == 2) {
+						// board offset calibration
+						answer_command(cmd, VEHICLE_CMD_RESULT_ACCEPTED);
+						calib_ret = do_level_calibration(mavlink_fd);
 					} else if ((int)(cmd.param6) == 1) {
 						/* airspeed calibration */
 						answer_command(cmd, VEHICLE_CMD_RESULT_ACCEPTED);
@@ -2768,7 +2795,7 @@ void *commander_low_prio_loop(void *arg)
 							checkAirspeed = true;
 						}
 
-						status.condition_system_sensors_initialized = Commander::preflightCheck(mavlink_fd, true, true, true, true, checkAirspeed, true);
+						status.condition_system_sensors_initialized = Commander::preflightCheck(mavlink_fd, true, true, true, true, checkAirspeed, true, !status.circuit_breaker_engaged_gpsfailure_check);
 
 						arming_state_transition(&status, &safety, vehicle_status_s::ARMING_STATE_STANDBY, &armed, true /* fRunPreArmChecks */, mavlink_fd);
 
