@@ -332,7 +332,8 @@ int parameters_init(struct position_estimator_inav_param_handles *h)
 int parameters_update(const struct position_estimator_inav_param_handles *h, struct position_estimator_inav_params *p)
 {
 	param_get(h->w_z_baro, &(p->w_z_baro));
-	param_get(h->w_z_gps_p, &(p->w_z_gps_p));
+    param_get(h->w_z_gps_p, &(p->w_z_gps_p));
+    param_get(h->w_z_gps_v, &(p->w_z_gps_v));
 	param_get(h->w_z_vision_p, &(p->w_z_vision_p));
 	param_get(h->w_z_sonar, &(p->w_z_sonar));
 	param_get(h->w_xy_gps_p, &(p->w_xy_gps_p));
