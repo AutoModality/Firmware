@@ -127,7 +127,7 @@ protected:
 	struct work_s		_work;
 	unsigned		_measure_ticks;
 
-	RingBuffer		*_reports;
+	ringbuffer::RingBuffer	*_reports;
 
 	bool			_collect_phase;
 	unsigned		_measure_phase;
@@ -224,7 +224,7 @@ MS5611::MS5611(device::Device *interface, ms5611::prom_u &prom_buf, const char* 
 	_OFF(0),
 	_SENS(0),
 	_msl_pressure(101325),
-	_baro_topic(-1),
+	_baro_topic(nullptr),
 	_orb_class_instance(-1),
 	_class_instance(-1),
 	_sample_perf(perf_alloc(PC_ELAPSED, "ms5611_read")),
@@ -269,7 +269,7 @@ MS5611::init()
 	}
 
 	/* allocate basic report buffers */
-	_reports = new RingBuffer(2, sizeof(baro_report));
+	_reports = new ringbuffer::RingBuffer(2, sizeof(baro_report));
 
 	if (_reports == nullptr) {
 		debug("can't get memory for reports");
@@ -322,7 +322,7 @@ MS5611::init()
 				&_orb_class_instance, (is_external()) ? ORB_PRIO_HIGH : ORB_PRIO_DEFAULT);
 
 
-		if (_baro_topic < 0) {
+		if (_baro_topic == nullptr) {
 			warnx("failed to create sensor_baro publication");
 		}
 
@@ -896,7 +896,7 @@ start_bus(struct ms5611_bus_option &bus)
 		bus.dev = NULL;
 		return false;
 	}
-			
+
 	int fd = open(bus.devpath, O_RDONLY);
 
 	/* set the poll rate to default, starts automatic data collection */
@@ -955,7 +955,7 @@ struct ms5611_bus_option &find_bus(enum MS5611_BUS busid)
 		     busid == bus_options[i].busid) && bus_options[i].dev != NULL) {
 			return bus_options[i];
 		}
-	}	
+	}
 	errx(1,"bus %u not started", (unsigned)busid);
 }
 

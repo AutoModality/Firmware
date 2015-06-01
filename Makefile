@@ -33,6 +33,13 @@
 # Top-level Makefile for building PX4 firmware images.
 #
 
+TARGETS	:= nuttx posix qurt
+EXPLICIT_TARGET	:= $(filter $(TARGETS),$(MAKECMDGOALS))
+ifneq ($(EXPLICIT_TARGET),)
+    export PX4_TARGET_OS=$(EXPLICIT_TARGET)
+    export GOALS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+endif
+
 #
 # Get path and tool configuration
 #
@@ -48,7 +55,14 @@ GIT_DESC := $(shell git log -1 --pretty=format:%H)
 ifneq ($(words $(GIT_DESC)),1)
     GIT_DESC := "unknown_git_version"
 endif
-export GIT_DESC
+
+GIT_DESC_SHORT := $(shell echo $(GIT_DESC) | cut -c1-16)
+
+$(shell mkdir -p $(BUILD_DIR))
+$(shell rm -f $(BUILD_DIR)git_version.*)
+$(shell echo "#include <systemlib/git_version.h>" > $(BUILD_DIR)git_version.c)
+$(shell echo "const char* px4_git_version = \"$(GIT_DESC)\";" >> $(BUILD_DIR)git_version.c)
+$(shell echo "const uint64_t px4_git_version_binary = 0x$(GIT_DESC_SHORT);" >> $(BUILD_DIR)git_version.c)
 
 #
 # Canned firmware configurations that we (know how to) build.
@@ -271,14 +285,12 @@ testbuild:
 	$(Q) (cd $(PX4_BASE) && $(MAKE) distclean && $(MAKE) archives && $(MAKE) -j8)
 	$(Q) (zip -r Firmware.zip $(PX4_BASE)/Images)
 
-posix:
-	make PX4_TARGET_OS=posix
-
-nuttx:
-	make PX4_TARGET_OS=nuttx
-
-qurt:
-	make PX4_TARGET_OS=qurt
+nuttx posix qurt: 
+ifeq ($(GOALS),)
+	make PX4_TARGET_OS=$@ $(GOALS)
+else
+	export PX4_TARGET_OS=$@
+endif
 
 posixrun:
 	Tools/posix_run.sh
@@ -306,6 +318,7 @@ check_format:
 clean:
 	@echo > /dev/null
 	$(Q) $(RMDIR) $(BUILD_DIR)*.build
+	$(Q) $(REMOVE) $(BUILD_DIR)git_version.*
 	$(Q) $(REMOVE) $(IMAGE_DIR)*.px4
 
 .PHONY:	distclean
@@ -327,9 +340,11 @@ help:
 	@$(ECHO) "  Available targets:"
 	@$(ECHO) "  ------------------"
 	@$(ECHO) ""
+ifeq ($(PX4_TARGET_OS),nuttx)
 	@$(ECHO) "  archives"
 	@$(ECHO) "    Build the NuttX RTOS archives that are used by the firmware build."
 	@$(ECHO) ""
+endif
 	@$(ECHO) "  all"
 	@$(ECHO) "    Build all firmware configs: $(CONFIGS)"
 	@$(ECHO) "    A limited set of configs can be built with CONFIGS=<list-of-configs>"
@@ -342,6 +357,7 @@ help:
 	@$(ECHO) "  clean"
 	@$(ECHO) "    Remove all firmware build pieces."
 	@$(ECHO) ""
+ifeq ($(PX4_TARGET_OS),nuttx)
 	@$(ECHO) "  distclean"
 	@$(ECHO) "    Remove all compilation products, including NuttX RTOS archives."
 	@$(ECHO) ""
@@ -350,6 +366,7 @@ help:
 	@$(ECHO) "    firmware to the board when the build is complete. Not supported for"
 	@$(ECHO) "    all configurations."
 	@$(ECHO) ""
+endif
 	@$(ECHO) "  testbuild"
 	@$(ECHO) "    Perform a complete clean build of the entire tree."
 	@$(ECHO) ""

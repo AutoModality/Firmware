@@ -42,6 +42,7 @@
 #include <systemlib/mixer/mixer.h>
 #include <systemlib/board_serial.h>
 #include <systemlib/scheduling_priorities.h>
+#include <systemlib/git_version.h>
 #include <version/version.h>
 #include <arch/board/board.h>
 #include <arch/chip/chip.h>
@@ -212,7 +213,7 @@ void UavcanNode::fill_node_info()
 
 	// Extracting the first 8 hex digits of GIT_VERSION and converting them to int
 	char fw_git_short[9] = {};
-	std::memmove(fw_git_short, GIT_VERSION, 8);
+	std::memmove(fw_git_short, px4_git_version, 8);
 	assert(fw_git_short[8] == '\0');
 	char *end = nullptr;
 	swver.vcs_commit = std::strtol(fw_git_short, &end, 16);
@@ -397,8 +398,8 @@ int UavcanNode::run()
 			    (_poll_fds[_actuator_direct_poll_fd_num].revents & POLLIN) &&
 			    orb_copy(ORB_ID(actuator_direct), _actuator_direct_sub, &_actuator_direct) == OK &&
 			    !_test_in_progress) {
-				if (_actuator_direct.nvalues > NUM_ACTUATOR_OUTPUTS) {
-					_actuator_direct.nvalues = NUM_ACTUATOR_OUTPUTS;
+				if (_actuator_direct.nvalues > actuator_outputs_s::NUM_ACTUATOR_OUTPUTS) {
+					_actuator_direct.nvalues = actuator_outputs_s::NUM_ACTUATOR_OUTPUTS;
 				}
 				memcpy(&_outputs.output[0], &_actuator_direct.values[0],
 				       _actuator_direct.nvalues*sizeof(float));
@@ -409,7 +410,7 @@ int UavcanNode::run()
 			// can we mix?
 			if (_test_in_progress) {
 				memset(&_outputs, 0, sizeof(_outputs));
-				if (_test_motor.motor_number < NUM_ACTUATOR_OUTPUTS) {
+				if (_test_motor.motor_number < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS) {
 					_outputs.output[_test_motor.motor_number] = _test_motor.value*2.0f-1.0f;
 					_outputs.noutputs = _test_motor.motor_number+1;
 				}
