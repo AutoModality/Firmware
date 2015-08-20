@@ -677,6 +677,11 @@ MulticopterPositionControl::control_offboard(float dt)
 
 	if (updated) {
 		orb_copy(ORB_ID(position_setpoint_triplet), _pos_sp_triplet_sub, &_pos_sp_triplet);
+//mavlink_log_info(_mavlink_fd, "[mpc1 x y z yaw]: %.4f %.4f %.4f %.4f",
+//        (double)(_pos_sp_triplet.current.x),
+//        (double)(_pos_sp_triplet.current.y),
+//        (double)(_pos_sp_triplet.current.z),
+//        (double)(_pos_sp_triplet.current.yaw));
 	}
 
 	if (_pos_sp_triplet.current.valid) {
@@ -716,7 +721,6 @@ MulticopterPositionControl::control_offboard(float dt)
 
 		/* move position setpoint */
 		_pos_sp += _sp_move_rate * dt;
-
 	} else {
 		reset_pos_sp();
 		reset_alt_sp();

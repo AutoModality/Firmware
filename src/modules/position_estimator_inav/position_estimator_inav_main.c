@@ -187,27 +187,71 @@ int position_estimator_inav_main(int argc, char *argv[])
 	exit(1);
 }
 
+static void write_msg_debug_log(const char *msg, float v1, float v2, float v3, float v4, float v5, float v6)
+{
+//    FILE *f = fopen("/fs/microsd/inav.log", "a");
+//
+//    if (f) {
+//        char *s = malloc(256);
+//        unsigned n = snprintf(s, 256, "%llu %s = [%.5f %.5f %.5f %.5f %.5f %.5f]\n",
+//                hrt_absolute_time(), msg, (double)v1, (double)v2, (double)v3, (double)v4, (double)v5, (double)v6);
+//        fwrite(s, 1, n, f);
+//        free(s);
+//    }
+//
+//    fsync(fileno(f));
+//    fclose(f);
+}
+
+//static void write_vision_debug_log(const char *msg, float dt, struct vision_position_estimate* vis,
+//        float x_est[2], float y_est[2], float z_est[2], float x_est_prev[2], float y_est_prev[2], float z_est_prev[2], float acc[3], float corr[3][2],
+//        float w_xy_p, float w_xy_v, float w_z_p, float w_z_v)
+//{
+//    FILE *f = fopen("/fs/microsd/inav.log", "a");
+//
+//    if (f) {
+//        char *s = malloc(256);
+//        unsigned n = snprintf(s, 256, "%llu %s\n\tdt=%.5f x_est=[%.5f %.5f] y_est=[%.5f %.5f] z_est=[%.5f %.5f] x_est_prev=[%.5f %.5f] y_est_prev=[%.5f %.5f] z_est_prev=[%.5f %.5f]\n",
+//                              hrt_absolute_time(), msg, (double)dt,
+//                              (double)x_est[0], (double)x_est[1], (double)y_est[0], (double)y_est[1], (double)z_est[0], (double)z_est[1],
+//                              (double)x_est_prev[0], (double)x_est_prev[1], (double)y_est_prev[0], (double)y_est_prev[1], (double)z_est_prev[0], (double)z_est_prev[1]);
+//        fwrite(s, 1, n, f);
+//        n = snprintf(s, 256, "\tvis.pos=[%.5f %.5f %.5f] vis.vel=[%.5f %.5f %.5f]\n",
+//                     (double)vis->x, (double)vis->y, (double)vis->z,(double)vis->vx,(double)vis->vy,(double)vis->vz);
+//        fwrite(s, 1, n, f);
+//        n = snprintf(s, 256, "\tacc=[%.5f %.5f %.5f] pos_corr=[%.5f %.5f %.5f] vel_corr=[%.5f %.5f %.5f] w_xy_p=%.5f w_xy_v=%.5f w_z_p=%.5f w_z_v=%.5f\n",
+//                     (double)acc[0], (double)acc[1], (double)acc[2],
+//                     (double)corr[0][0], (double)corr[1][0], (double)corr[2][0], (double)corr[0][1], (double)corr[1][1], (double)corr[2][1],
+//                     (double)w_xy_p, (double)w_xy_v, (double)w_z_p, (double)w_z_v);
+//        fwrite(s, 1, n, f);
+//        free(s);
+//    }
+//
+//    fsync(fileno(f));
+//    fclose(f);
+//}
+
 static void write_debug_log(const char *msg, float dt, float x_est[2], float y_est[2], float z_est[2], float x_est_prev[2], float y_est_prev[2], float z_est_prev[2], float acc[3], float corr_gps[3][2], float w_xy_gps_p, float w_xy_gps_v)
 {
-	FILE *f = fopen("/fs/microsd/inav.log", "a");
+    FILE *f = fopen("/fs/microsd/inav.log", "a");
 
-	if (f) {
-		char *s = malloc(256);
-		unsigned n = snprintf(s, 256, "%llu %s\n\tdt=%.5f x_est=[%.5f %.5f] y_est=[%.5f %.5f] z_est=[%.5f %.5f] x_est_prev=[%.5f %.5f] y_est_prev=[%.5f %.5f] z_est_prev=[%.5f %.5f]\n",
+    if (f) {
+        char *s = malloc(256);
+        unsigned n = snprintf(s, 256, "%llu %s\n\tdt=%.5f x_est=[%.5f %.5f] y_est=[%.5f %.5f] z_est=[%.5f %.5f] x_est_prev=[%.5f %.5f] y_est_prev=[%.5f %.5f] z_est_prev=[%.5f %.5f]\n",
                               hrt_absolute_time(), msg, (double)dt,
                               (double)x_est[0], (double)x_est[1], (double)y_est[0], (double)y_est[1], (double)z_est[0], (double)z_est[1],
                               (double)x_est_prev[0], (double)x_est_prev[1], (double)y_est_prev[0], (double)y_est_prev[1], (double)z_est_prev[0], (double)z_est_prev[1]);
-		fwrite(s, 1, n, f);
-		n = snprintf(s, 256, "\tacc=[%.5f %.5f %.5f] gps_pos_corr=[%.5f %.5f %.5f] gps_vel_corr=[%.5f %.5f %.5f] w_xy_gps_p=%.5f w_xy_gps_v=%.5f\n",
+        fwrite(s, 1, n, f);
+        n = snprintf(s, 256, "\tacc=[%.5f %.5f %.5f] gps_pos_corr=[%.5f %.5f %.5f] gps_vel_corr=[%.5f %.5f %.5f] w_xy_gps_p=%.5f w_xy_gps_v=%.5f\n",
                      (double)acc[0], (double)acc[1], (double)acc[2],
                      (double)corr_gps[0][0], (double)corr_gps[1][0], (double)corr_gps[2][0], (double)corr_gps[0][1], (double)corr_gps[1][1], (double)corr_gps[2][1],
                      (double)w_xy_gps_p, (double)w_xy_gps_v);
-		fwrite(s, 1, n, f);
-		free(s);
-	}
+        fwrite(s, 1, n, f);
+        free(s);
+    }
 
-	fsync(fileno(f));
-	fclose(f);
+    fsync(fileno(f));
+    fclose(f);
 }
 
 /****************************************************************************
@@ -404,6 +448,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		{ .fd = vehicle_attitude_sub, .events = POLLIN },
 	};
 
+    write_msg_debug_log("\n###### NEW RUN #####\n", 0,0,0,0,0,0);
 	while (!thread_should_exit) {
 		int ret = poll(fds, 1, 20); // wait maximal 20 ms = 50 Hz minimum rate
 		hrt_abstime t = hrt_absolute_time();
@@ -698,7 +743,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 						corr_vision[1][1] = 0.0f - y_est[1];
 						corr_vision[2][1] = 0.0f - z_est[1];
 					}
-
+					write_msg_debug_log("GOT VISION ", vision.x, vision.y, vision.z, vision.vx, vision.vy, vision.vz);
 				}
 			}
 
@@ -895,6 +940,10 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			baro_offset += offs_corr;
 			corr_baro += offs_corr;
 		}
+//ELK        write_vision_debug_log("BEFORE CORRECTIONS", dt, &vision,
+//                x_est, y_est, z_est, x_est_prev, y_est_prev, z_est_prev, acc, corr_gps,
+//                w_xy_vision_p, w_xy_vision_v, w_z_vision_p, w_z_gps_v);
+
 
 		/* accelerometer bias correction for GPS (use buffered rotation matrix) */
 		float accel_bias_corr[3] = { 0.0f, 0.0f, 0.0f };
@@ -937,7 +986,8 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		}
 
 		if (use_vision_z) {
-			accel_bias_corr[2] -= corr_vision[2][0] * w_z_vision_p * w_z_vision_p;
+            accel_bias_corr[2] -= corr_vision[2][0] * w_z_vision_p * w_z_vision_p;
+            accel_bias_corr[2] -= corr_vision[2][1] * w_z_gps_v;
 		}
 
 		/* transform error vector from NED frame to body frame */
@@ -998,7 +1048,8 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 		if (use_vision_z) {
 			epv = fminf(epv, epv_vision);
-			inertial_filter_correct(corr_vision[2][0], dt, z_est, 0, w_z_vision_p);
+            inertial_filter_correct(corr_vision[2][0], dt, z_est, 0, w_z_vision_p);
+            inertial_filter_correct(corr_vision[2][1], dt, z_est, 0, w_z_gps_v);
 		}
 
 		if (!(isfinite(z_est[0]) && isfinite(z_est[1]))) {
@@ -1072,6 +1123,10 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			inertial_filter_correct(-x_est[1], dt, x_est, 1, params.w_xy_res_v);
 			inertial_filter_correct(-y_est[1], dt, y_est, 1, params.w_xy_res_v);
 		}
+
+//ELK        write_vision_debug_log("AFTER CORRECTIONS 2", dt, &vision,
+//                x_est, y_est, z_est, x_est_prev, y_est_prev, z_est_prev, acc, corr_gps,
+//                w_xy_vision_p, w_xy_vision_v, w_z_vision_p, w_z_gps_v);
 
 		if (verbose_mode) {
 			/* print updates rate */

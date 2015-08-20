@@ -2253,7 +2253,8 @@ set_main_state_rc(struct vehicle_status_s *status_local, struct manual_control_s
     // check to see if state being forced
     if (isStateForced) {
         if (sp_man->mode_switch == manual_control_setpoint_s::SWITCH_POS_OFF &&
-                sp_man->acro_switch != manual_control_setpoint_s::SWITCH_POS_ON) {
+                sp_man->acro_switch != manual_control_setpoint_s::SWITCH_POS_ON &&
+                sp_man->offboard_switch != manual_control_setpoint_s::SWITCH_POS_ON) {
             isStateForced = false;
             return main_state_transition(status_local,vehicle_status_s::MAIN_STATE_MANUAL);
         } else {

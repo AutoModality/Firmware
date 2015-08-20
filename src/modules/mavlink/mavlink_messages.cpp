@@ -1761,9 +1761,16 @@ protected:
 
 			msg.time_boot_ms = pos_sp.timestamp / 1000;
 			msg.coordinate_frame = MAV_FRAME_LOCAL_NED;
-			msg.x = pos_sp.x;
-			msg.y = pos_sp.y;
-			msg.z = pos_sp.z;
+            msg.x = pos_sp.x;
+            msg.y = pos_sp.y;
+            msg.z = pos_sp.z;
+            msg.vx = pos_sp.vx;
+            msg.vy = pos_sp.vy;
+            msg.vz = pos_sp.vz;
+            msg.afx = pos_sp.acc_x;
+            msg.afy = pos_sp.acc_y;
+            msg.afz = pos_sp.acc_z;
+            msg.yaw = pos_sp.yaw;
 
 			_mavlink->send_message(MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED, &msg);
 		}
