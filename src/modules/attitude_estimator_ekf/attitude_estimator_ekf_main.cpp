@@ -448,7 +448,7 @@ int attitude_estimator_ekf_thread_main(int argc, char *argv[])
 					}
 
 					bool vision_updated = false;
-					orb_check(vision_sub, &vision_updated);
+//ELK					orb_check(vision_sub, &vision_updated);
 
 					bool mocap_updated = false;
 					orb_check(mocap_sub, &mocap_updated);
